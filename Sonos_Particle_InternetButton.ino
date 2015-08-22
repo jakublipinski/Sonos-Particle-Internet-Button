@@ -1,7 +1,10 @@
+// This #include statement was automatically added by the Particle IDE.
+#include "InternetButton.h"
+
 /*
 * ======================================================================
 * Hover + Spark - Spark Core code for controlling Sonos devices with gestures using 
-* 				  the Hover board (http://www.hoverlabs.co/#hover) 
+*                 the Hover board (http://www.hoverlabs.co/#hover) 
 *
 * Modified from SonosIR - Arduino sketch for infrared control of Sonos ZonePlayer (c) 2010
 * Simon Long, KuDaTa Software
@@ -20,7 +23,6 @@
 */
 
 #include "application.h"
-#include "hover/hover.h"
 
 /*----------------------------------------------------------------------*/
 /* Macros and constants */
@@ -63,10 +65,10 @@
 #define REMOTE_PREV 0b00100100
 #define REMOTE_VOLD 0b00110000
 /* IP addresses of Arduino and ZonePlayer */
-#define IP1 192
-#define IP2 168
-#define IP3 1
-#define IP4 5 /* Office */
+#define IP1 10
+#define IP2 0
+#define IP3 0
+#define IP4 85 /* Office */
 
 /* Enable DEBUG for serial debug output */
 //
@@ -79,7 +81,7 @@
 int ts = D3;
 int reset = D2;
 
-Hover hover = Hover();
+InternetButton b = InternetButton();
 byte eventtype;
 String outputstring;
 
@@ -109,21 +111,21 @@ TCPClient client;
 /* Function defintions */
 /*----------------------------------------------------------------------*/
 /*----------------------------------------------------------------------*/
-/* setup - configures Arduino */
 void setup() {
 
-mode = MODE_NORMAL;
-#ifdef DEBUG
-    Serial.begin(115200);
-    while(!Serial.available()); // wait here for user to press ENTER in Serial Terminal
-    Serial.print("Initializing Hover...please wait.");
-#endif
-hover.begin(ts, reset);
+    mode = MODE_NORMAL;
+    b.begin();
+    
+    Serial.begin(9600);
+    
+    sonos(SONOS_PLAY, nullbuf, nullbuf);
 }
 /*----------------------------------------------------------------------*/
 /* loop - called repeatedly by Arduino */
 void loop() {
-int res;
+    
+    
+/*int res;
 if (hover.getStatus(ts) == 0) {
     eventtype = hover.getEvent();
     
@@ -137,12 +139,14 @@ if (hover.getStatus(ts) == 0) {
       Serial.println("\r\n" + outputstring);
     }
     #endif
+    */
 /*
 * only process if this is the first packet for 200ms -
 * prevents multiple operations
 */
+/*
     if (millis() > (lastcmd + 50) && (eventtype != 0)) {
-/* compare received IR against known commands */
+// compare received IR against known commands 
         switch (eventtype) {
     
         case REMOTE_SCAN:
@@ -263,59 +267,55 @@ if (hover.getStatus(ts) == 0) {
         default:
             break;
         }
-    /* store time at which last IR command was processed */
+        
+    // store time at which last IR command was processed 
     lastcmd = millis();
     }
 hover.setRelease(ts);
 }
 
-/* processing for intro scan and A-B repeat modes */
+// processing for intro scan and A-B repeat modes
 if (mode != MODE_NORMAL) {
-/*
-* if in intro scan or A-B, poll the current playback
-* position every 0.5s
-*/
+
+// if in intro scan or A-B, poll the current playback position every 0.5s
+
 if (millis() > lastpoll + 500) {
 sonos(SONOS_POSIT, data1, nullbuf);
 res = seconds(data1 + 1);
 if (mode == MODE_SCAN) {
-/*
-* intro scan - if current time is greater
-* than 10 seconds, skip forward
-*/
+
+// intro scan - if current time is greater than 10 seconds, skip forward
+
 if (res >= 10) {
 strcpy(data1, "fault");
 sonos(SONOS_NEXT, data1, nullbuf);
-/*
-* if skip returned an error, at end
-* of playlist - cancel scan
-*/
+
+// if skip returned an error, at end of playlist - cancel scan
+
 if (data1[0] != 'f')
 mode = MODE_NORMAL;
 }
 }
 if (mode == MODE_AB) {
-/*
-* A-B repeat - if current time is greater
-* than end time, skip to start time
-*/
+
+// A-B repeat - if current time is greater than end time, skip to start time
+
 if (res >= posb) {
 desttime = posa;
 sonos(SONOS_SEEK, nullbuf, nullbuf);
 }
 }
 if (mode == MODE_A) {
-/*
-* A pressed - waiting for B - abort if track
-* end reached
-*/
+
+// A pressed - waiting for B - abort if track
 if (res < posa)
 mode = MODE_NORMAL;
 }
-/* update playback position timer */
+// update playback position timer 
 lastpoll = millis();
 }
 }
+*/
 }
 /*----------------------------------------------------------------------*/
 /* seconds - converts supplied string in format hh:mm:ss to seconds */
@@ -352,197 +352,199 @@ Serial.write( (const uint8_t*)s, strlen(s) );
 /*----------------------------------------------------------------------*/
 /* sonos - sends a command packet to the ZonePlayer */
 void sonos(int cmd, char *resp1, char *resp2) {
-//char buf[512];
-char buf[380];
-char cmdbuf[32];
-char extra[64];
-char service[20];
-char *ptr1;
-char *ptr2;
-char *optr;
-char copying;
-unsigned long timeout;
-extra[0] = 0;
-strcpy(service, "AVTransport");
-//delay(2000);
-if (client.connect(sonosip, 1400)) {
-#ifdef DEBUG
-Serial.println("connected");
-#endif
-/*
-* prepare the data strings to go into the desired command
-* packet
-*/
-switch (cmd) {
-case SONOS_PLAY:
-strcpy(cmdbuf, "Play");
-strcpy(extra, "<Speed>1</Speed>");
-break;
-case SONOS_PAUSE:
-strcpy(cmdbuf, "Pause");
-break;
-case SONOS_PREV:
-strcpy(cmdbuf, "Previous");
-break;
-case SONOS_NEXT:
-strcpy(cmdbuf, "Next");
-break;
-case SONOS_SEEK:
-strcpy(cmdbuf, "Seek");
-sprintf(extra, "<Unit>REL_TIME</Unit><Target>%02d:%02d:%02d</Target>", desttime / 3600, (desttime / 60) % 60, desttime % 60);
-break;
-case SONOS_NORMAL:
-case SONOS_REPEAT:
-case SONOS_SHUFF:
-case SONOS_SHUREP:
-if (cmd == SONOS_NORMAL)
-strcpy(cmdbuf, "NORMAL");
-if (cmd == SONOS_REPEAT)
-strcpy(cmdbuf, "REPEAT_ALL");
-if (cmd == SONOS_SHUFF)
-strcpy(cmdbuf, "SHUFFLE_NOREPEAT");
-if (cmd == SONOS_SHUREP)
-strcpy(cmdbuf, "SHUFFLE");
-sprintf(extra, "<NewPlayMode>%s</NewPlayMode>", cmdbuf);
-strcpy(cmdbuf, "SetPlayMode");
-break;
-case SONOS_MODE:
-strcpy(cmdbuf, "GetTransportSettings");
-strcpy(resp1, "PlayMode");
-break;
-case SONOS_POSIT:
-strcpy(cmdbuf, "GetPositionInfo");
-strcpy(resp1, "RelTime");
-break;
-case SONOS_GETVOL:
-strcpy(cmdbuf, "GetVolume");
-strcpy(extra, "<Channel>Master</Channel>");
-strcpy(service, "RenderingControl");
-strcpy(resp1, "CurrentVolume");
-break;
-case SONOS_SETVOL:
-strcpy(cmdbuf, "SetVolume");
-sprintf(extra, "<Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>", newvol);
-strcpy(service, "RenderingControl");
-break;
-}
-/* output the command packet */
-sprintf(buf, "POST /MediaRenderer/%s/Control HTTP/1.1\r\n", service);
-out(buf);
-out("Connection: close\r\n");
-sprintf(buf, "Host: %d.%d.%d.%d:1400\r\n", sonosip[0], sonosip[1], sonosip[2], sonosip[3]);
-out(buf);
-sprintf(buf, "Content-Length: %d\r\n", 231 + 2 * strlen(cmdbuf) + strlen(extra) + strlen(service));
-out(buf);
-out("Content-Type: text/xml; charset=\"utf-8\"\r\n");
-sprintf(buf, "Soapaction: \"urn:schemas-upnp-org:service:%s:1#%s\"\r\n", service, cmdbuf);
-out(buf);
-out("\r\n");
-sprintf(buf, "%s<u:%s%s%s%s%s</u:%s>%s\r\n", SONOS_CMDH, cmdbuf, SONOS_CMDP, service, SONOS_CMDQ, extra, cmdbuf, SONOS_CMDF);
-out(buf);
-/* wait for a response packet */
-timeout = millis();
-while ((!client.available()) && ((millis() - timeout) < 1000));
-/*
-* parse the response looking for the strings in resp1 and
-* resp2
-*/
-ptr1 = resp1;
-ptr2 = resp2;
-copying = 0;
-while (client.available()) {
-char c = client.read();
-/*
-* if response buffers start with nulls, either no
-* response required, or already received
-*/
-if (resp1[0] || resp2[0]) {
-/*
-* if a response has been identified, copy
-* the data
-*/
-if (copying) {
-/*
-* look for the < character that
-* indicates the end of the data
-*/
-if (c == '<') {
-/*
-* stop receiving data, and
-* null the first character
-* in the response buffer
-*/
-copying = 0;
-*optr = 0;
-if (copying == 1)
-resp1[0] = 0;
-else
-resp2[0] = 0;
-} else {
-/*
-* copy the next byte to the
-* response buffer
-*/
-*optr = c;
-optr++;
-}
-} else {
-/*
-* look for input characters that
-* match the response buffers
-*/
-if (c == *ptr1) {
-/*
-* character matched -
-* advance to next character
-* to match
-*/
-ptr1++;
-/*
-* is this the end of the
-* response buffer
-*/
-if (*ptr1 == 0) {
-/*
-* string matched -
-* start copying from
-* next character
-* received
-*/
-copying = 1;
-optr = resp1;
-ptr1 = resp1;
-}
-} else
-ptr1 = resp1;
-/*
-* as above for second response
-* buffer
-*/
-if (c == *ptr2) {
-ptr2++;
-if (*ptr2 == 0) {
-copying = 2;
-optr = resp2;
-ptr2 = resp2;
-}
-} else
-ptr2 = resp2;
-}
-}
-#ifdef DEBUG
-Serial.print(c);
-#endif
-}
-} else {
-#ifdef DEBUG
-Serial.println("connection failed");
-#endif
-}
-while (client.available()) client.read(); 
+    //char buf[512];
+    char buf[380];
+    char cmdbuf[32];
+    char extra[64];
+    char service[20];
+    char *ptr1;
+    char *ptr2;
+    char *optr;
+    char copying;
+    unsigned long timeout;
+    extra[0] = 0;
+    strcpy(service, "AVTransport");
+    //delay(2000);
+    if (client.connect(sonosip, 1400)) {
+    #ifdef DEBUG
+    Serial.println("connected");
+    #endif
+    /*
+    * prepare the data strings to go into the desired command
+    * packet
+    */
+    switch (cmd) {
+        case SONOS_PLAY:
+            strcpy(cmdbuf, "Play");
+            strcpy(extra, "<Speed>1</Speed>");
+            break;
+        case SONOS_PAUSE:
+            strcpy(cmdbuf, "Pause");
+            break;
+        case SONOS_PREV:
+            strcpy(cmdbuf, "Previous");
+            break;
+        case SONOS_NEXT:
+            strcpy(cmdbuf, "Next");
+            break;
+        case SONOS_SEEK:
+            strcpy(cmdbuf, "Seek");
+            sprintf(extra, "<Unit>REL_TIME</Unit><Target>%02d:%02d:%02d</Target>", desttime / 3600, (desttime / 60) % 60, desttime % 60);
+            break;
+        case SONOS_NORMAL:
+        case SONOS_REPEAT:
+        case SONOS_SHUFF:
+        case SONOS_SHUREP:
+            if (cmd == SONOS_NORMAL)
+                strcpy(cmdbuf, "NORMAL");
+            if (cmd == SONOS_REPEAT)
+                strcpy(cmdbuf, "REPEAT_ALL");
+            if (cmd == SONOS_SHUFF)
+                strcpy(cmdbuf, "SHUFFLE_NOREPEAT");
+            if (cmd == SONOS_SHUREP)
+                strcpy(cmdbuf, "SHUFFLE");
+                sprintf(extra, "<NewPlayMode>%s</NewPlayMode>", cmdbuf);
+                strcpy(cmdbuf, "SetPlayMode");
+            break;
+        case SONOS_MODE:
+            strcpy(cmdbuf, "GetTransportSettings");
+            strcpy(resp1, "PlayMode");
+            break;
+        case SONOS_POSIT:
+            strcpy(cmdbuf, "GetPositionInfo");
+            strcpy(resp1, "RelTime");
+            break;
+        case SONOS_GETVOL:
+            strcpy(cmdbuf, "GetVolume");
+            strcpy(extra, "<Channel>Master</Channel>");
+            strcpy(service, "RenderingControl");
+            strcpy(resp1, "CurrentVolume");
+            break;
+        case SONOS_SETVOL:
+            strcpy(cmdbuf, "SetVolume");
+            sprintf(extra, "<Channel>Master</Channel><DesiredVolume>%d</DesiredVolume>", newvol);
+            strcpy(service, "RenderingControl");
+            break;
+    }
+    
+    /* output the command packet */
+    sprintf(buf, "POST /MediaRenderer/%s/Control HTTP/1.1\r\n", service);
+    out(buf);
+    out("Connection: close\r\n");
+    sprintf(buf, "Host: %d.%d.%d.%d:1400\r\n", sonosip[0], sonosip[1], sonosip[2], sonosip[3]);
+    out(buf);
+    sprintf(buf, "Content-Length: %d\r\n", 231 + 2 * strlen(cmdbuf) + strlen(extra) + strlen(service));
+    out(buf);
+    out("Content-Type: text/xml; charset=\"utf-8\"\r\n");
+    sprintf(buf, "Soapaction: \"urn:schemas-upnp-org:service:%s:1#%s\"\r\n", service, cmdbuf);
+    out(buf);
+    out("\r\n");
+    sprintf(buf, "%s<u:%s%s%s%s%s</u:%s>%s\r\n", SONOS_CMDH, cmdbuf, SONOS_CMDP, service, SONOS_CMDQ, extra, cmdbuf, SONOS_CMDF);
+    out(buf);
+    /* wait for a response packet */
+    timeout = millis();
 
-delay(100);
-client.stop();
+    while ((!client.available()) && ((millis() - timeout) < 1000));
+        /*
+        * parse the response looking for the strings in resp1 and
+        * resp2
+        */
+        ptr1 = resp1;
+        ptr2 = resp2;
+        copying = 0;
+        while (client.available()) {
+        char c = client.read();
+        /*
+        * if response buffers start with nulls, either no
+        * response required, or already received
+        */
+        if (resp1[0] || resp2[0]) {
+        /*
+        * if a response has been identified, copy
+        * the data
+        */
+        if (copying) {
+        /*
+        * look for the < character that
+        * indicates the end of the data
+        */
+        if (c == '<') {
+        /*
+        * stop receiving data, and
+        * null the first character
+        * in the response buffer
+        */
+        copying = 0;
+        *optr = 0;
+        if (copying == 1)
+        resp1[0] = 0;
+        else
+        resp2[0] = 0;
+        } else {
+        /*
+        * copy the next byte to the
+        * response buffer
+        */
+        *optr = c;
+        optr++;
+        }
+        } else {
+        /*
+        * look for input characters that
+        * match the response buffers
+        */
+        if (c == *ptr1) {
+        /*
+        * character matched -
+        * advance to next character
+        * to match
+        */
+        ptr1++;
+        /*
+        * is this the end of the
+        * response buffer
+        */
+        if (*ptr1 == 0) {
+        /*
+        * string matched -
+        * start copying from
+        * next character
+        * received
+        */
+        copying = 1;
+        optr = resp1;
+        ptr1 = resp1;
+        }
+        } else
+        ptr1 = resp1;
+        /*
+        * as above for second response
+        * buffer
+        */
+        if (c == *ptr2) {
+        ptr2++;
+        if (*ptr2 == 0) {
+        copying = 2;
+        optr = resp2;
+        ptr2 = resp2;
+        }
+        } else
+        ptr2 = resp2;
+        }
+        }
+        #ifdef DEBUG
+        Serial.print(c);
+        #endif
+        }
+        } else {
+        #ifdef DEBUG
+        Serial.println("connection failed");
+        #endif
+    }
+    while (client.available()) client.read(); 
+    
+    delay(100);
+    client.stop();
 }
 /* End of file */
 /* ====================================================================== */
