@@ -36,3 +36,5 @@ Icon
 .Spotlight-V100
 .Trashes
 *.bin
+*.sublime-project
+*.sublime-workspace
