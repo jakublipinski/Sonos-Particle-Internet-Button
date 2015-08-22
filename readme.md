@@ -1,7 +1,5 @@
-Code to control a Sonos device with a Hover board connected to a Spark Core.
+Code to control a Sonos device with a InternetButton device.
 
-Connect the hover board to the core using the tutorial here: http://www.hoverlabs.co/spark
+In order to compile and flash your device connect via usb please use:
 
-Copy the contents of SonosHoverSpark.ino to the Spark web IDE and add the hover library. 
-
-Tested and working with the Sonos Play 1
+`$ particle flash baton .`
